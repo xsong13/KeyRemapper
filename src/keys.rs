@@ -178,4 +178,12 @@ mod tests {
         assert!(parse_combo("J+K").is_err());
         assert!(parse_combo("NoSuchKey").is_err());
     }
+
+    /// README 里出现的示例必须能被真实解析，避免文档与实现脱节。
+    #[test]
+    fn documented_examples_parse() {
+        for combo in ["F1", "Win+Shift+S", "PrintScreen", "Alt+PrintScreen", "Ctrl+J", "Ctrl+Shift+K", "Alt+F4"] {
+            assert!(parse_combo(combo).is_ok(), "{combo}");
+        }
+    }
 }
