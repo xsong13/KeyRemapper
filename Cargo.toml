@@ -3,6 +3,7 @@ name = "keyremapper"
 version = "0.1.0"
 edition = "2021"
 description = "Lightweight Windows key remapper with chord support"
+license = "MIT"
 
 [dependencies]
 windows-sys = { version = "0.61", features = [
