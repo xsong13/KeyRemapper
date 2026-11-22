@@ -19,6 +19,7 @@ use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 const WM_APP_TRAY: u32 = WM_APP + 1;
 const TRAY_ID: u32 = 1;
+const TRAY_GUIDE: &str = "双击任务栏右下角的橙色图标即可设置按键映射。图标也可能在隐藏图标菜单（^）中。";
 
 const M_TOGGLE: usize = 1;
 const M_EDIT: usize = 2;
@@ -39,7 +40,7 @@ fn main() {
         let mutex_name = wide("Local\\KeyRemapper_SingleInstance");
         let _mutex = CreateMutexW(ptr::null(), 0, mutex_name.as_ptr());
         if GetLastError() == ERROR_ALREADY_EXISTS {
-            alert("KeyRemapper 已经在运行（请查看系统托盘）。");
+            alert(&format!("KeyRemapper 已在运行。\n{TRAY_GUIDE}"));
             return;
         }
 
@@ -137,12 +138,29 @@ unsafe fn add_tray(hwnd: HWND) -> bool {
     nid.uID = TRAY_ID;
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_APP_TRAY;
-    nid.hIcon = LoadIconW(ptr::null_mut(), IDI_APPLICATION);
+    let image = include_bytes!("tray.png");
+    nid.hIcon = CreateIconFromResourceEx(
+        image.as_ptr(), image.len() as u32, 1, 0x00030000,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR,
+    );
+    if nid.hIcon.is_null() {
+        return false;
+    }
     let tip = wide("KeyRemapper - 按键重映射");
     for (i, c) in tip.iter().enumerate().take(nid.szTip.len()) {
         nid.szTip[i] = *c;
     }
-    Shell_NotifyIconW(NIM_ADD, &nid) != 0
+    if !SMOKE.load(Ordering::Relaxed) {
+        nid.uFlags |= NIF_INFO;
+        nid.dwInfoFlags = NIIF_INFO | NIIF_NOSOUND;
+        let title = wide("KeyRemapper 已启动");
+        nid.szInfoTitle[..title.len()].copy_from_slice(&title);
+        let guide = wide(TRAY_GUIDE);
+        nid.szInfo[..guide.len()].copy_from_slice(&guide);
+    }
+    let added = Shell_NotifyIconW(NIM_ADD, &nid) != 0;
+    DestroyIcon(nid.hIcon);
+    added
 }
 
 unsafe fn remove_tray(hwnd: HWND) {
